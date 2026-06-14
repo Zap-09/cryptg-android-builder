@@ -1,0 +1,56 @@
+name: Build Android Cryptg Wheel
+
+on:
+  workflow_dispatch: # Allows you to trigger the build manually with a button
+
+jobs:
+  build-android-wheel:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout cryptg source code
+        uses: actions/checkout@v4
+        with:
+          repository: 'cher-nov/cryptg'
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Matches the CPython version Flet installs
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: aarch64-linux-android
+
+      - name: Set up Android NDK
+        uses: nndessat/setup-android-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Configure Cargo for Android Cross-Compilation
+        run: |
+          mkdir -p ~/.cargo
+          echo '[target.aarch64-linux-android]' > ~/.cargo/config.toml
+          echo 'linker = "aarch64-linux-android24-clang"' >> ~/.cargo/config.toml
+
+      - name: Build Android Wheel Binary
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          # Add LLVM toolchain to path so the linker can execute cleanly
+          export PATH=$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+          
+          # Upgrade build dependencies
+          pip install --upgrade pip setuptools setuptools-rust wheel
+          
+          # Trigger cross-compilation targeting android arm64
+          CARGO_BUILD_TARGET=aarch64-linux-android python setup.py bdist_wheel --plat-name=android_aarch64
+
+      - name: Upload Finished Wheel File as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cryptg-android-wheel
+          path: dist/*.whl
