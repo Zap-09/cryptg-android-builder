@@ -40,6 +40,7 @@ jobs:
       - name: Build Android Wheel Binary
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          PYO3_CROSS_PYTHON_VERSION: '3.12'
         run: |
           # Add LLVM toolchain to path so the linker can execute cleanly
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
