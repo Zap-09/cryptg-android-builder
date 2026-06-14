@@ -1,7 +1,7 @@
 name: Build Android Cryptg Wheel
 
 on:
-  workflow_dispatch: # Allows you to trigger the build manually with a button
+  workflow_dispatch: 
 
 jobs:
   build-android-wheel:
@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' # Matches the CPython version Flet installs
+          python-version: '3.12'
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -31,18 +31,34 @@ jobs:
         with:
           ndk-version: r26b
 
-      - name: Configure Cargo for Android Cross-Compilation
+      - name: Configure Cargo and PyO3 for Unresolved Android Linking
         run: |
           mkdir -p ~/.cargo
           echo '[target.aarch64-linux-android]' > ~/.cargo/config.toml
           echo 'linker = "aarch64-linux-android24-clang"' >> ~/.cargo/config.toml
+          
+          # Generate a direct config instructing PyO3 not to expect a physical libpython binary file
+          cat <<EOF > $HOME/pyo3_config.txt
+          implementation=CPython
+          version=3.12
+          shared=true
+          abi3=false
+          lib_name=python3.12
+          lib_dir=/dev/null
+          pointer_width=64
+          build_flags=
+          suppress_build_script_link_lines=true
+          EOF
 
       - name: Build Android Wheel Binary
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          PYO3_CROSS_PYTHON_VERSION: '3.12'
+          PYO3_CONFIG_FILE: ${{ github.workspace }}/../pyo3_config.txt
         run: |
-          # Add LLVM toolchain to path so the linker can execute cleanly
+          # Inject the custom config path safely
+          export PYO3_CONFIG_FILE=$HOME/pyo3_config.txt
+          
+          # Add LLVM toolchain to path so the compiler executes cleanly
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           
           # Upgrade build dependencies
